@@ -15,6 +15,7 @@
 **Files:**
 - Create: `backend/requirements.txt`
 - Create: `backend/app/config.py`
+- Create: `backend/tests/test_config.py`
 
 - [ ] **Step 1: Write requirements.txt**
   Create `backend/requirements.txt` with:
@@ -24,6 +25,7 @@
   openai==1.34.0
   sqlalchemy==2.0.30
   pydantic==2.7.4
+  pydantic-settings==2.3.3
   pytest==8.2.2
   httpx==0.27.0
   python-dotenv==1.0.1
@@ -52,7 +54,7 @@
 - [ ] **Step 4: Commit**
   Run:
   ```bash
-  git add backend/requirements.txt backend/app/config.py
+  git add backend/requirements.txt backend/app/config.py backend/tests/test_config.py
   git commit -m "chore: initialize backend dependencies and config"
   ```
 
