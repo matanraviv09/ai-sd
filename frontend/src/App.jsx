@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
+import SessionSidebar from './components/SessionSidebar.jsx';
 
 export const theme = {
   colors: {
@@ -44,17 +45,49 @@ const AppContainer = styled.div`
   background-color: ${props => props.theme.colors.background};
 `;
 
-const ContentContainer = styled.div`
+const MainContent = styled.main`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
 `;
 
+const PlaceholderText = styled.div`
+  color: ${props => props.theme.colors.textSecondary};
+  font-size: 16px;
+`;
+
 export default function App() {
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+
+  const handleSelectSession = (id) => {
+    setCurrentSessionId(id);
+  };
+
+  const handleNewSession = () => {
+    setCurrentSessionId(null);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <>
         <GlobalStyle />
         <AppContainer data-testid="app-container">
-          <ContentContainer>Security Workflow Assistant</ContentContainer>
+          <SessionSidebar
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelectSession={handleSelectSession}
+            onNewSession={handleNewSession}
+          />
+          <MainContent>
+            {currentSessionId ? (
+              <PlaceholderText>Active Session: {currentSessionId}</PlaceholderText>
+            ) : (
+              <PlaceholderText>Create New Request</PlaceholderText>
+            )}
+          </MainContent>
         </AppContainer>
       </>
     </ThemeProvider>
