@@ -2,7 +2,7 @@ from openai import OpenAI
 import json
 import logging
 from typing import Dict, Any, List
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from backend.app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,23 @@ class OpenAIClient:
                 temperature=0.0
             )
             content = response.choices[0].message.content
-            return json.loads(content) if content else {}
+            extracted = json.loads(content) if content else {}
+            
+            # Validate each field against the model's schema
+            valid_extracted = {}
+            for field_name, value in extracted.items():
+                if field_name in model.model_fields:
+                    field_info = model.model_fields[field_name]
+                    try:
+                        ta = TypeAdapter(field_info.annotation)
+                        ta.validate_python(value)
+                        valid_extracted[field_name] = value
+                    except ValidationError:
+                        logger.warning(
+                            "LLM extracted invalid value '%s' for field '%s'. Discarding.",
+                            value, field_name
+                        )
+            return valid_extracted
         except Exception as e:
             logger.error("OpenAI API error during field extraction: %s", str(e))
             # Return empty dict on error (no new fields extracted)
@@ -59,7 +75,8 @@ class OpenAIClient:
                 messages=chat_messages,
                 temperature=0.7
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            return content.strip() if content else f"Please provide the required information for: {field_description}."
         except Exception as e:
             logger.error("OpenAI API error during follow-up generation: %s", str(e))
             return f"Please provide the required information for: {field_description}."
@@ -83,7 +100,8 @@ class OpenAIClient:
                 messages=chat_messages,
                 temperature=0.7
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            return content.strip() if content else f"Your request has been {status}. Rationale: {rationale}."
         except Exception as e:
             logger.error("OpenAI API error during final response generation: %s", str(e))
             return f"Your request has been {status}. Rationale: {rationale}."

@@ -108,3 +108,68 @@ def test_generate_final_response_error(mock_openai_class):
     )
     assert "Approved" in text
     assert "SOC2 is available." in text
+
+
+@patch("backend.app.openai_client.OpenAI")
+def test_extract_fields_invalid_types(mock_openai_class):
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    # Mock LLM returning invalid Literal value ("maybe" for sso_supported, and invalid field type)
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content='{"vendor_name": "Slack", "sso_supported": "maybe", "unknown_field": "test"}'))
+    ]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    client = OpenAIClient()
+    extracted = client.extract_fields(
+        model=VendorApprovalInput,
+        current_fields={"business_owner": "bob@acme.com"},
+        messages=[{"role": "user", "content": "Slack is great, and yes we support SSO."}]
+    )
+    # vendor_name is valid, but sso_supported is invalid ("maybe" instead of "yes"/"no") and should be discarded.
+    # unknown_field is not in the model fields and should not be included.
+    assert extracted == {"vendor_name": "Slack"}
+
+
+@patch("backend.app.openai_client.OpenAI")
+def test_generate_follow_up_none_content(mock_openai_class):
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content=None))
+    ]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    client = OpenAIClient()
+    text = client.generate_follow_up(
+        missing_field="soc2_available",
+        field_description="Whether a SOC2 report is available",
+        messages=[{"role": "user", "content": "I need vendor approval for Slack"}]
+    )
+    assert "Whether a SOC2 report is available" in text
+
+
+@patch("backend.app.openai_client.OpenAI")
+def test_generate_final_response_none_content(mock_openai_class):
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(message=MagicMock(content=None))
+    ]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    client = OpenAIClient()
+    text = client.generate_final_response(
+        workflow_name="Vendor Approval",
+        status="Approved",
+        rationale="SOC2 is available.",
+        metadata={"risk_level": "Medium"},
+        messages=[{"role": "user", "content": "Here is the SOC2"}]
+    )
+    assert "Approved" in text
+    assert "SOC2 is available." in text
+
