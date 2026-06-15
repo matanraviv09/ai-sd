@@ -981,96 +981,12 @@
 
 ---
 
-### Task 7: Frontend Scaffolding and Setup
+### Task 9: Backend End-to-End Verification
 
-**Files:**
-- Create: `frontend/package.json`
-- Create: `frontend/vite.config.js`
-
-- [ ] **Step 1: Check available options for Vite creation (First command with --help rule)**
-  Run: `npx -y create-vite@latest --help`
-  Expected: Displays Vite template option list.
-
-- [ ] **Step 2: Create React application using Vite**
-  Run in workspace root (`/Users/matan/projects/Treat`):
-  `npx -y create-vite@latest frontend --template react`
-  Expected: Creates standard React directory struct in `frontend/`.
-
-- [ ] **Step 3: Modify package.json and install frontend dependencies**
-  Modify: `frontend/package.json` to include styled-components and launch configurations.
-  Install dependencies: `npm install --prefix frontend styled-components`
-  Expected: Installations succeed.
-
-- [ ] **Step 4: Configure Vite proxy**
-  Create `frontend/vite.config.js` to proxy `/api` requests to backend port `8000`:
-  ```javascript
-  import { defineConfig } from 'vite'
-  import react from '@vitejs/plugin-react'
-
-  export default defineConfig({
-    plugins: [react()],
-    server: {
-      proxy: {
-        '/api': {
-          target: 'http://127.0.0.1:8000',
-          changeOrigin: true,
-        }
-      }
-    }
-  })
-  ```
-
-- [ ] **Step 5: Commit scaffolding**
-  Run:
-  ```bash
-  git add frontend/package.json frontend/vite.config.js
-  git commit -m "chore: scaffold React Vite frontend and configure API proxy"
-  ```
-
----
-
-### Task 8: Frontend Component Development
-
-**Files:**
-- Modify: `frontend/src/App.jsx`
-- Create: `frontend/src/components/SessionSidebar.jsx`
-- Create: `frontend/src/components/ChatWindow.jsx`
-- Create: `frontend/src/components/ChatInput.jsx`
-- Create: `frontend/src/components/DecisionBanner.jsx`
-
-- [ ] **Step 1: Build Sidebar component**
-  Create `frontend/src/components/SessionSidebar.jsx` with list of historic sessions and a "New Request" button.
-- [ ] **Step 2: Build ChatWindow and Message components**
-  Create `frontend/src/components/ChatWindow.jsx` to render message histories and active fields.
-- [ ] **Step 3: Build ChatInput and DecisionBanner components**
-  Create `frontend/src/components/ChatInput.jsx` (form & chat input support) and `frontend/src/components/DecisionBanner.jsx` (Approved/Rejected banner).
-- [ ] **Step 4: Build App.jsx layout and coordination logic**
-  Update `frontend/src/App.jsx` to coordinate dropdown selections, form renderings, and API request dispatches.
-- [ ] **Step 5: Commit UI implementation**
-  Run:
-  ```bash
-  git add frontend/src/
-  git commit -m "feat: implement React UI components using styled-components"
-  ```
-
----
-
-### Task 9: End-to-End Verification
-
-- [ ] **Step 1: Run the complete test suite**
+- [ ] **Step 1: Run the complete backend test suite**
   Run: `pytest backend/tests/ -v`
   Expected: All tests pass.
 
-- [ ] **Step 2: Start backend development server**
-  Run: `python -m uvicorn backend.app.main:app --reload --port 8000`
+- [ ] **Step 2: Start backend server to verify it binds and runs**
+  Run: `python -m uvicorn backend.app.main:app --port 8000`
   Expected: Server starts on port 8000.
-
-- [ ] **Step 3: Start frontend development server**
-  Run: `npm run dev --prefix frontend`
-  Expected: Vite server starts on port 5173.
-
-- [ ] **Step 4: Perform manual walk-through verification**
-  Open `http://localhost:5173`. Select "Vendor Approval".
-  Verify that submitting empty fields renders a chat prompt.
-  Verify that typing details updates the extracted list.
-  Verify that final decision renders the decision banner correctly.
