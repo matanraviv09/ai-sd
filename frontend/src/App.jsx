@@ -30,8 +30,8 @@ const GlobalStyle = createGlobalStyle`
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: ${theme.colors.background};
-    color: ${theme.colors.textPrimary};
+    background-color: ${props => props.theme.colors.background};
+    color: ${props => props.theme.colors.textPrimary};
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -44,13 +44,17 @@ const AppContainer = styled.div`
   background-color: ${props => props.theme.colors.background};
 `;
 
+const ContentContainer = styled.div`
+  padding: 20px;
+`;
+
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <>
         <GlobalStyle />
         <AppContainer data-testid="app-container">
-          <div style={{ padding: '20px' }}>Security Workflow Assistant</div>
+          <ContentContainer>Security Workflow Assistant</ContentContainer>
         </AppContainer>
       </>
     </ThemeProvider>
