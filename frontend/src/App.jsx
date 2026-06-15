@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 import SessionSidebar from './components/SessionSidebar.jsx';
+import MainBubble from './components/MainBubble.jsx';
+import WorkflowForm from './components/WorkflowForm.jsx';
+import ChatWindow from './components/ChatWindow.jsx';
 
 export const theme = {
   colors: {
@@ -53,22 +56,67 @@ const MainContent = styled.main`
   padding: 20px;
 `;
 
-const PlaceholderText = styled.div`
-  color: ${props => props.theme.colors.textSecondary};
-  font-size: 16px;
-`;
-
 export default function App() {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [workflows, setWorkflows] = useState([]);
 
-  const handleSelectSession = (id) => {
-    setCurrentSessionId(id);
+  useEffect(() => {
+    fetchWorkflows();
+    fetchSessions();
+  }, []);
+
+  const fetchWorkflows = async () => {
+    try {
+      const res = await fetch('/api/workflows');
+      const data = await res.json();
+      setWorkflows(data);
+    } catch (err) {
+      console.error('Failed to fetch workflows:', err);
+    }
   };
 
-  const handleNewSession = () => {
-    setCurrentSessionId(null);
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch('/api/sessions');
+      const data = await res.json();
+      setSessions(data);
+    } catch (err) {
+      console.error('Failed to fetch sessions:', err);
+    }
   };
+
+  const handleCreateSession = async (workflowName, formValues) => {
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow_name: workflowName, form_values: formValues })
+      });
+      const newSession = await res.json();
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(newSession.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
+  };
+
+  const handleSendMessage = async (text) => {
+    if (!currentSessionId) return;
+    try {
+      const res = await fetch(`/api/sessions/${currentSessionId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const updatedSession = await res.json();
+      setSessions(prev => prev.map(s => s.id === currentSessionId ? updatedSession : s));
+    } catch (err) {
+      console.error('Failed to send message:', err);
+    }
+  };
+
+  const activeSession = sessions.find(s => s.id === currentSessionId);
 
   return (
     <ThemeProvider theme={theme}>
@@ -78,15 +126,23 @@ export default function App() {
           <SessionSidebar
             sessions={sessions}
             currentSessionId={currentSessionId}
-            onSelectSession={handleSelectSession}
-            onNewSession={handleNewSession}
+            onSelectSession={setCurrentSessionId}
+            onNewSession={() => setCurrentSessionId(null)}
           />
           <MainContent>
-            {currentSessionId ? (
-              <PlaceholderText>Active Session: {currentSessionId}</PlaceholderText>
-            ) : (
-              <PlaceholderText>Create New Request</PlaceholderText>
-            )}
+            <MainBubble>
+              {activeSession ? (
+                <ChatWindow
+                  session={activeSession}
+                  onSendMessage={handleSendMessage}
+                />
+              ) : (
+                <WorkflowForm
+                  workflows={workflows}
+                  onSubmit={handleCreateSession}
+                />
+              )}
+            </MainBubble>
           </MainContent>
         </AppContainer>
       </>
