@@ -1,8 +1,11 @@
 from openai import OpenAI
 import json
+import logging
 from typing import Dict, Any, List
 from pydantic import BaseModel
 from backend.app.config import settings
+
+logger = logging.getLogger(__name__)
 
 class OpenAIClient:
     def __init__(self):
@@ -26,7 +29,7 @@ class OpenAIClient:
             
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=settings.OPENAI_MODEL,
                 messages=chat_messages,
                 response_format={"type": "json_object"},
                 temperature=0.0
@@ -34,7 +37,8 @@ class OpenAIClient:
             content = response.choices[0].message.content
             return json.loads(content) if content else {}
         except Exception as e:
-            # Fallback to current fields on error
+            logger.error("OpenAI API error during field extraction: %s", str(e))
+            # Return empty dict on error (no new fields extracted)
             return {}
 
     def generate_follow_up(self, missing_field: str, field_description: str, messages: List[Dict[str, str]]) -> str:
@@ -51,12 +55,13 @@ class OpenAIClient:
             
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=settings.OPENAI_MODEL,
                 messages=chat_messages,
                 temperature=0.7
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
+            logger.error("OpenAI API error during follow-up generation: %s", str(e))
             return f"Please provide the required information for: {field_description}."
 
     def generate_final_response(self, workflow_name: str, status: str, rationale: str, metadata: Dict[str, Any], messages: List[Dict[str, str]]) -> str:
@@ -74,10 +79,11 @@ class OpenAIClient:
             
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model=settings.OPENAI_MODEL,
                 messages=chat_messages,
                 temperature=0.7
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
+            logger.error("OpenAI API error during final response generation: %s", str(e))
             return f"Your request has been {status}. Rationale: {rationale}."
