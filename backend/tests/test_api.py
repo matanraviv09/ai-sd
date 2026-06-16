@@ -110,3 +110,30 @@ def test_delete_session_api(mock_openai, test_client):
     # Confirm it's gone
     get_response = test_client.get(f"/api/sessions/{session_id}")
     assert get_response.status_code == 404
+
+
+def test_create_session_with_refitted_from(mock_openai, test_client):
+    mock_openai.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="Question?"))]
+    )
+
+    # 1. Create a parent session
+    response1 = test_client.post("/api/sessions", json={
+        "workflow_name": "Vendor Approval",
+        "form_values": {"vendor_name": "Rejected Vendor"}
+    })
+    parent_id = response1.json()["id"]
+
+    # 2. Create a refitted session linking back to parent_id
+    response2 = test_client.post("/api/sessions", json={
+        "workflow_name": "Vendor Approval",
+        "form_values": {"vendor_name": "Refitted Vendor"},
+        "refitted_from": parent_id
+    })
+    assert response2.status_code == 200
+    refitted_id = response2.json()["id"]
+
+    # 3. Retrieve refitted session details and assert refitted_from is returned
+    get_res = test_client.get(f"/api/sessions/{refitted_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["refitted_from"] == parent_id
