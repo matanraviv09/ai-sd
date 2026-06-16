@@ -79,4 +79,26 @@ describe('SessionSidebar', () => {
     expect(screen.getByTestId('sidebar-spinner')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New Request' })).toBeDisabled();
   });
+
+  it('renders color highlights for Approved and Rejected sessions', () => {
+    const sessionsWithDecisions = [
+      { id: '11111111', workflow_name: 'Vendor Approval', status: 'completed', decision: 'Approved' },
+      { id: '22222222', workflow_name: 'Vendor Approval', status: 'completed', decision: 'Rejected' }
+    ];
+
+    renderWithTheme(
+      <SessionSidebar
+        sessions={sessionsWithDecisions}
+        currentSessionId="11111111"
+        onSelectSession={() => {}}
+        onNewSession={() => {}}
+      />
+    );
+
+    const approvedItem = screen.getByText('Vendor Approval (111111)').closest('div');
+    const rejectedItem = screen.getByText('Vendor Approval (222222)').closest('div');
+
+    expect(approvedItem).toBeInTheDocument();
+    expect(rejectedItem).toBeInTheDocument();
+  });
 });

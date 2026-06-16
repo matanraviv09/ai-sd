@@ -64,10 +64,20 @@ const SessionItemRow = styled.div`
   font-size: 14px;
   margin-bottom: 4px;
   background-color: ${props => props.$active ? props.theme.colors.chatUser : 'transparent'};
-  color: ${props => props.$active ? props.theme.colors.primary : props.theme.colors.textPrimary};
+  color: ${props => 
+    props.$decision === 'Approved' ? props.theme.colors.success :
+    props.$decision === 'Rejected' ? props.theme.colors.error :
+    props.$active ? props.theme.colors.primary : props.theme.colors.textPrimary
+  };
   font-weight: ${props => props.$active ? '600' : 'normal'};
   opacity: ${props => props.$disabled ? 0.7 : 1};
   pointer-events: ${props => props.$disabled ? 'none' : 'auto'};
+  border-left: ${props => 
+    props.$decision === 'Approved' ? `4px solid ${props.theme.colors.success}` :
+    props.$decision === 'Rejected' ? `4px solid ${props.theme.colors.error}` :
+    'none'
+  };
+  padding-left: ${props => (props.$decision === 'Approved' || props.$decision === 'Rejected') ? '6px' : '10px'};
 
   &:hover {
     background-color: ${props => props.$active ? props.theme.colors.chatUser : props.theme.colors.chatAssistant};
@@ -140,6 +150,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSelectSes
             key={session.id}
             $active={session.id === currentSessionId}
             $disabled={isProcessing}
+            $decision={session.decision}
             onClick={() => !isProcessing && onSelectSession(session.id)}
           >
             <SessionItemText>
@@ -166,6 +177,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSelectSes
             key={session.id}
             $active={session.id === currentSessionId}
             $disabled={isProcessing}
+            $decision={session.decision}
             onClick={() => !isProcessing && onSelectSession(session.id)}
           >
             <SessionItemText>
