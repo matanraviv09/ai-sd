@@ -20,9 +20,10 @@ const mockCompletedSession = {
   messages: [
     { role: 'assistant', content: 'Decision finalized.' }
   ],
-  decision: {
-    status: 'Approved',
-    rationale: 'All clear.'
+  audit_log: {
+    decision: 'Approved',
+    rationale: 'All clear.',
+    final_response: 'All clear.'
   }
 };
 

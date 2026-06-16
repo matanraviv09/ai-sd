@@ -10,8 +10,8 @@ const mockWorkflows = [
     name: 'Vendor Approval',
     description: 'Vendor review',
     fields: [
-      { name: 'vendor_name', description: 'Name of vendor', options: [] },
-      { name: 'soc2_available', description: 'SOC2 status', options: ['yes', 'no'] }
+      { name: 'vendor_name', description: 'Name of vendor', choices: null },
+      { name: 'soc2_available', description: 'SOC2 status', choices: ['yes', 'no'] }
     ]
   }
 ];

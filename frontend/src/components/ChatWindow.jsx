@@ -96,9 +96,9 @@ export default function ChatWindow({ session, onSendMessage }) {
 
   return (
     <ChatContainer>
-      {isCompleted && session.decision && (
-        <Banner $status={session.decision.status} data-testid="decision-banner">
-          <strong>{session.decision.status}</strong>: {session.decision.rationale}
+      {isCompleted && session.audit_log && (
+        <Banner $status={session.audit_log.decision} data-testid="decision-banner">
+          <strong>{session.audit_log.decision}</strong>: {session.audit_log.rationale}
         </Banner>
       )}
       

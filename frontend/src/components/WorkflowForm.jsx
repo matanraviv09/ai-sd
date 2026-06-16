@@ -124,7 +124,7 @@ export default function WorkflowForm({ workflows, onSubmit }) {
         </FormGroup>
 
         {activeWorkflow && activeWorkflow.fields.map(field => {
-          const isLiteral = field.options && field.options.length > 0;
+          const isLiteral = field.choices && field.choices.length > 0;
           return (
             <FormGroup key={field.name}>
               <Label>{field.label || field.name}</Label>
@@ -134,7 +134,7 @@ export default function WorkflowForm({ workflows, onSubmit }) {
                   onChange={e => handleFieldChange(field.name, e.target.value)}
                 >
                   <option value="">-- Choose option (Optional) --</option>
-                  {field.options.map(opt => (
+                  {field.choices.map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </Select>

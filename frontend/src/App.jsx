@@ -56,10 +56,39 @@ const MainContent = styled.main`
   padding: 20px;
 `;
 
+const LoadingText = styled.div`
+  font-size: 14px;
+  color: ${props => props.theme.colors.textSecondary};
+`;
+
+const ErrorBanner = styled.div`
+  padding: 12px 16px;
+  background-color: ${props => props.theme.colors.errorBg};
+  color: ${props => props.theme.colors.error};
+  border: 1px solid ${props => props.theme.colors.error};
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const DismissButton = styled.button`
+  background: none;
+  border: none;
+  color: ${props => props.theme.colors.error};
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+`;
+
 export default function App() {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [workflows, setWorkflows] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchWorkflows();
@@ -69,20 +98,49 @@ export default function App() {
   const fetchWorkflows = async () => {
     try {
       const res = await fetch('/api/workflows');
+      if (!res.ok) throw new Error('Failed to load workflows');
       const data = await res.json();
       setWorkflows(data);
     } catch (err) {
       console.error('Failed to fetch workflows:', err);
+      setError('Could not load workflows from server. Please verify the backend API is running.');
     }
   };
 
   const fetchSessions = async () => {
     try {
       const res = await fetch('/api/sessions');
+      if (!res.ok) throw new Error('Failed to load sessions');
       const data = await res.json();
       setSessions(data);
     } catch (err) {
       console.error('Failed to fetch sessions:', err);
+      setError('Could not load sessions from server.');
+    }
+  };
+
+  useEffect(() => {
+    if (currentSessionId) {
+      fetchSessionDetails(currentSessionId);
+    }
+  }, [currentSessionId]);
+
+  const fetchSessionDetails = async (id) => {
+    try {
+      const res = await fetch(`/api/sessions/${id}`);
+      if (!res.ok) throw new Error('Failed to load session details');
+      const data = await res.json();
+      setSessions(prev => {
+        const exists = prev.some(s => s.id === id);
+        if (exists) {
+          return prev.map(s => s.id === id ? data : s);
+        } else {
+          return [data, ...prev];
+        }
+      });
+    } catch (err) {
+      console.error('Failed to fetch session details:', err);
+      setError('Could not load session details.');
     }
   };
 
@@ -93,11 +151,12 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workflow_name: workflowName, form_values: formValues })
       });
+      if (!res.ok) throw new Error('Failed to create session');
       const newSession = await res.json();
-      setSessions(prev => [newSession, ...prev]);
       setCurrentSessionId(newSession.id);
     } catch (err) {
       console.error('Failed to create session:', err);
+      setError('Could not create new security request.');
     }
   };
 
@@ -109,10 +168,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
       });
-      const updatedSession = await res.json();
-      setSessions(prev => prev.map(s => s.id === currentSessionId ? updatedSession : s));
+      if (!res.ok) throw new Error('Failed to send message');
+      await fetchSessionDetails(currentSessionId);
     } catch (err) {
       console.error('Failed to send message:', err);
+      setError('Failed to send message.');
     }
   };
 
@@ -131,11 +191,21 @@ export default function App() {
           />
           <MainContent>
             <MainBubble>
+              {error && (
+                <ErrorBanner data-testid="error-banner">
+                  <span>{error}</span>
+                  <DismissButton onClick={() => setError(null)}>×</DismissButton>
+                </ErrorBanner>
+              )}
               {activeSession ? (
-                <ChatWindow
-                  session={activeSession}
-                  onSendMessage={handleSendMessage}
-                />
+                !activeSession.messages ? (
+                  <LoadingText>Loading session details...</LoadingText>
+                ) : (
+                  <ChatWindow
+                    session={activeSession}
+                    onSendMessage={handleSendMessage}
+                  />
+                )
               ) : (
                 <WorkflowForm
                   workflows={workflows}
