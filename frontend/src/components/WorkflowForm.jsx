@@ -38,7 +38,7 @@ const Label = styled.label`
 
 const Select = styled.select`
   padding: 10px;
-  border: 1px solid ${props => props.theme.colors.border};
+  border: 1px solid ${props => props.$missing ? props.theme.colors.error : props.theme.colors.border};
   border-radius: 8px;
   background-color: white;
   font-size: 14px;
@@ -46,26 +46,39 @@ const Select = styled.select`
   outline: none;
 
   &:focus {
-    border-color: ${props => props.theme.colors.primary};
+    border-color: ${props => props.$missing ? props.theme.colors.error : props.theme.colors.primary};
   }
 `;
 
 const Input = styled.input`
   padding: 10px;
-  border: 1px solid ${props => props.theme.colors.border};
+  border: 1px solid ${props => props.$missing ? props.theme.colors.error : props.theme.colors.border};
   border-radius: 8px;
   font-size: 14px;
   color: ${props => props.theme.colors.textPrimary};
   outline: none;
 
   &:focus {
-    border-color: ${props => props.theme.colors.primary};
+    border-color: ${props => props.$missing ? props.theme.colors.error : props.theme.colors.primary};
   }
 `;
 
 const Description = styled.span`
   font-size: 12px;
   color: ${props => props.theme.colors.textSecondary};
+`;
+
+const LabelRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const MissingBadge = styled.span`
+  font-size: 11px;
+  color: ${props => props.theme.colors.error};
+  font-weight: bold;
+  text-transform: uppercase;
 `;
 
 const SubmitButton = styled.button`
@@ -95,15 +108,19 @@ const LoadingText = styled.div`
   color: ${props => props.theme.colors.textSecondary};
 `;
 
-export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
+export default function WorkflowForm({ workflows, onSubmit, isProcessing, session }) {
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
   const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    if (workflows && workflows.length > 0) {
+    if (session) {
+      setSelectedWorkflow(session.workflow_name);
+      setFormData(session.extracted_fields || {});
+    } else if (workflows && workflows.length > 0) {
       setSelectedWorkflow(workflows[0].name);
+      setFormData({});
     }
-  }, [workflows]);
+  }, [session, workflows]);
 
   const activeWorkflow = workflows.find(w => w.name === selectedWorkflow);
 
@@ -113,22 +130,38 @@ export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(selectedWorkflow, formData);
+    if (session) {
+      onSubmit(selectedWorkflow, formData, session.id);
+    } else {
+      onSubmit(selectedWorkflow, formData);
+    }
   };
 
   if (!workflows || workflows.length === 0) {
     return <LoadingText>Loading workflows...</LoadingText>;
   }
 
+  const decision = session && (session.decision || (session.audit_log && session.audit_log.decision));
+  const isRejected = session && session.status === 'completed' && decision === 'Rejected';
+  const isReadOnly = session && (session.status === 'active' || (session.status === 'completed' && decision !== 'Rejected'));
+
+  const getButtonText = () => {
+    if (isProcessing) return 'Processing...';
+    if (!session) return 'Start Request';
+    if (isRejected) return 'Refit Request';
+    if (decision === 'Approved') return 'Approved';
+    return 'Active';
+  };
+
   return (
     <StyledForm onSubmit={handleSubmit}>
       <FormContainer>
-        <Title>New Security Request</Title>
+        <Title>{session ? 'Request Settings' : 'New Security Request'}</Title>
         <FormGroup>
           <Label>Select Workflow</Label>
           <Select
             value={selectedWorkflow}
-            disabled={isProcessing}
+            disabled={isProcessing || !!session}
             onChange={e => {
               setSelectedWorkflow(e.target.value);
               setFormData({});
@@ -142,13 +175,18 @@ export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
 
         {activeWorkflow && activeWorkflow.fields.map(field => {
           const isLiteral = field.choices && field.choices.length > 0;
+          const isFieldMissing = session && (!formData[field.name] || formData[field.name] === '');
           return (
             <FormGroup key={field.name}>
-              <Label>{field.label || field.name}</Label>
+              <LabelRow>
+                <Label>{field.label || field.name}</Label>
+                {isFieldMissing && <MissingBadge>Missing</MissingBadge>}
+              </LabelRow>
               {isLiteral ? (
                 <Select
                   value={formData[field.name] || ''}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isReadOnly}
+                  $missing={isFieldMissing}
                   onChange={e => handleFieldChange(field.name, e.target.value)}
                 >
                   <option value="">-- Choose option (Optional) --</option>
@@ -160,7 +198,8 @@ export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
                 <Input
                   type="text"
                   value={formData[field.name] || ''}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isReadOnly}
+                  $missing={isFieldMissing}
                   placeholder={`Enter ${field.name}...`}
                   onChange={e => handleFieldChange(field.name, e.target.value)}
                 />
@@ -170,8 +209,8 @@ export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
           );
         })}
 
-        <SubmitButton type="submit" disabled={isProcessing}>
-          {isProcessing ? 'Processing...' : 'Start Request'}
+        <SubmitButton type="submit" disabled={isProcessing || (session && !isRejected)}>
+          {getButtonText()}
         </SubmitButton>
       </FormContainer>
     </StyledForm>
