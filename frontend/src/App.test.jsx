@@ -21,6 +21,8 @@ const mockSessions = [
   }
 ];
 
+let dbSessions;
+
 describe.sequential('App Integration', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -28,7 +30,7 @@ describe.sequential('App Integration', () => {
 
   beforeEach(() => {
     window.location.hash = '';
-    let dbSessions = {
+    dbSessions = {
       'session-1': {
         id: 'session-1',
         workflow_name: 'Vendor Approval',
@@ -53,7 +55,8 @@ describe.sequential('App Integration', () => {
             workflow_name: body.workflow_name,
             status: 'active',
             messages: [{ role: 'assistant', content: 'First response' }],
-            audit_log: null
+            audit_log: null,
+            refitted_from: body.refitted_from || null
           };
           dbSessions[newSession.id] = newSession;
           return Promise.resolve({
@@ -69,7 +72,8 @@ describe.sequential('App Integration', () => {
         const list = Object.values(dbSessions).map(s => ({
           id: s.id,
           workflow_name: s.workflow_name,
-          status: s.status
+          status: s.status,
+          refitted_from: s.refitted_from || null
         }));
         return Promise.resolve({
           ok: true,
@@ -88,6 +92,30 @@ describe.sequential('App Integration', () => {
             ok: true,
             json: () => Promise.resolve({ detail: 'Session deleted' })
           });
+        }
+
+        if (options && options.method === 'PUT') {
+          const body = JSON.parse(options.body);
+          const session = dbSessions[id];
+          if (session) {
+            if (session.status === 'completed') {
+              return Promise.resolve({
+                ok: false,
+                status: 400,
+                json: () => Promise.resolve({ detail: 'Session is already completed' })
+              });
+            }
+            session.workflow_name = body.workflow_name;
+            session.extracted_fields = body.form_values;
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve({
+                id: session.id,
+                status: session.status,
+                last_message: 'Updated settings'
+              })
+            });
+          }
         }
 
         if (isMessage && options && options.method === 'POST') {
@@ -126,20 +154,28 @@ describe.sequential('App Integration', () => {
     }));
   });
 
-  it('loads workflows and allows starting a new session', async () => {
+  it('allows creating a new session via New Request button', async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('New Security Request')).toBeInTheDocument();
+      expect(screen.getByText('New Request')).toBeInTheDocument();
     });
 
-    const input = screen.getByPlaceholderText('Enter vendor_name...');
-    fireEvent.change(input, { target: { value: 'Test Vendor' } });
+    fireEvent.click(screen.getByText('New Request'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start Request' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Search workflows...')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText('Search workflows...');
+    fireEvent.change(searchInput, { target: { value: 'Vendor' } });
+    expect(screen.getByText('Vendor Approval')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Vendor Approval'));
 
     await waitFor(() => {
       expect(screen.getByText('First response')).toBeInTheDocument();
+      expect(screen.getByText('Request Settings')).toBeInTheDocument();
     });
   });
 
@@ -198,5 +234,57 @@ describe.sequential('App Integration', () => {
     await waitFor(() => {
       expect(screen.queryByText('Vendor Approval (sessio)')).not.toBeInTheDocument();
     });
+  });
+
+  it('allows refitting a rejected session and calls POST /api/sessions with refitted_from', async () => {
+    dbSessions['rejected-session'] = {
+      id: 'rejected-session',
+      workflow_name: 'Vendor Approval',
+      status: 'completed',
+      extracted_fields: {
+        vendor_name: 'Slack'
+      },
+      messages: [
+        { role: 'user', content: 'Acme' },
+        { role: 'assistant', content: 'Rejected.' }
+      ],
+      audit_log: {
+        decision: 'Rejected',
+        rationale: 'Missing SOC2.',
+        final_response: 'Rejected.'
+      }
+    };
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Vendor Approval (reject)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Vendor Approval (reject)'));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Enter vendor_name...').value).toBe('Slack');
+    });
+
+    const input = screen.getByPlaceholderText('Enter vendor_name...');
+
+    // Make it dirty so the Refit Request button is enabled
+    fireEvent.change(input, { target: { value: 'Slack Refitted' } });
+
+    const refitButton = screen.getByRole('button', { name: 'Refit Request' });
+    expect(refitButton).not.toBeDisabled();
+
+    fireEvent.click(refitButton);
+
+    // After clicking refit, we expect a POST to /api/sessions which will add a new-session-id to dbSessions.
+    // Let's wait for the new session's messages/form to be loaded.
+    await waitFor(() => {
+      expect(screen.getByText('First response')).toBeInTheDocument();
+    });
+
+    // Check that the new session was created with refitted_from = 'rejected-session'
+    expect(dbSessions['new-session-id']).toBeDefined();
+    expect(dbSessions['new-session-id'].refitted_from).toBe('rejected-session');
   });
 });

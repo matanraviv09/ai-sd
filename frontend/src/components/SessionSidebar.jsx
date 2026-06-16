@@ -150,7 +150,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSelectSes
             key={session.id}
             $active={session.id === currentSessionId}
             $disabled={isProcessing}
-            $decision={session.decision}
+            $decision={session.decision || (session.audit_log && session.audit_log.decision)}
             onClick={() => !isProcessing && onSelectSession(session.id)}
           >
             <SessionItemText>
@@ -177,7 +177,7 @@ export default function SessionSidebar({ sessions, currentSessionId, onSelectSes
             key={session.id}
             $active={session.id === currentSessionId}
             $disabled={isProcessing}
-            $decision={session.decision}
+            $decision={session.decision || (session.audit_log && session.audit_log.decision)}
             onClick={() => !isProcessing && onSelectSession(session.id)}
           >
             <SessionItemText>

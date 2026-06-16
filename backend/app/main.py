@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, get_args, get_origin
+import types
 
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -50,6 +51,12 @@ class SessionCreate(BaseModel):
     refitted_from: Optional[str] = None
 
 
+class SessionUpdate(BaseModel):
+    workflow_name: str
+    form_values: Dict[str, Any]
+
+
+
 class MessageCreate(BaseModel):
     message: str
 
@@ -63,20 +70,19 @@ class MessageCreate(BaseModel):
 
 def _extract_field_choices(annotation: object) -> Optional[List[str]]:
     """Safely extract choices from Literal or Optional[Literal[...]] annotations."""
+    from typing import Literal
     origin = get_origin(annotation)
     args = get_args(annotation)
 
-    # Handle Optional[X] / Union[X, None] — unwrap and recurse on the real type.
-    # Note: types.UnionType (PEP 604 syntax `X | Y`) is Python 3.10+; we only
-    # need to handle typing.Union here since our models use Optional[...].
-    if str(origin) in ("typing.Union", "typing.Optional"):
+    # Handle Optional[X] → Union[X, None] — unwrap and recurse on the real type
+    if str(origin) == "typing.Union" or (hasattr(types, "UnionType") and origin is getattr(types, "UnionType")):
         non_none = [a for a in args if a is not type(None)]
         if non_none:
             return _extract_field_choices(non_none[0])
         return None
 
     # Handle Literal["a", "b", ...]
-    if args and origin is None:
+    if origin is Literal or str(origin) == "typing.Literal" or str(origin).endswith("Literal"):
         return [str(a) for a in args]
 
     return None
@@ -194,6 +200,32 @@ def send_message(session_id: str, payload: MessageCreate, db: Session = Depends(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/sessions/{session_id}")
+def update_session(session_id: str, payload: SessionUpdate, db: Session = Depends(get_db)):
+    session = db.query(SessionModel).filter_by(id=session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.status == "completed":
+        raise HTTPException(status_code=400, detail="Session is already completed")
+
+    cleaned_fields = {k: v for k, v in payload.form_values.items() if v is not None and v != ""}
+    session.workflow_name = payload.workflow_name
+    session.extracted_fields = cleaned_fields
+    db.commit()
+
+    summary = f"Updated workflow '{payload.workflow_name}' settings: " + ", ".join([f"{k}={v}" for k, v in cleaned_fields.items()])
+    msg = MessageModel(session_id=session_id, role="user", content=summary)
+    db.add(msg)
+    db.commit()
+
+    assistant_reply = engine_instance._evaluate_and_respond(db, session)
+    return {
+        "id": session_id,
+        "status": session.status,
+        "last_message": assistant_reply,
+    }
 
 
 @app.delete("/api/sessions/{session_id}")

@@ -48,14 +48,6 @@ const AppContainer = styled.div`
   background-color: ${props => props.theme.colors.background};
 `;
 
-const MainContent = styled.main`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-`;
-
 const LoadingText = styled.div`
   font-size: 14px;
   color: ${props => props.theme.colors.textSecondary};
@@ -84,23 +76,116 @@ const DismissButton = styled.button`
   line-height: 1;
 `;
 
-const DoubleBubbleContainer = styled.div`
+const MainContent = styled.main`
+  flex: 1;
   display: flex;
-  flex-direction: row;
-  gap: 20px;
-  width: 100%;
-  max-width: 1220px;
-  justify-content: center;
-  align-items: center;
+  height: 100%;
+  overflow: hidden;
 `;
 
-const ContentArea = styled.div`
+const MiddleContent = styled.div`
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding: 40px;
+  overflow-y: auto;
+  height: 100%;
+`;
+
+const RightSidebar = styled.div`
+  width: 400px;
+  border-left: 1px solid ${props => props.theme.colors.border};
+  background-color: ${props => props.theme.colors.paper};
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+`;
+
+const EmptyStateContainer = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: ${props => props.theme.colors.textSecondary};
+  font-size: 16px;
+  height: 100%;
+  padding: 40px;
+`;
+const SelectorContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 600px;
+`;
+
+const SelectorTitle = styled.h2`
+  font-size: 24px;
+  font-weight: 700;
+  color: ${props => props.theme.colors.textPrimary};
+  margin-bottom: 8px;
+`;
+
+const SearchInput = styled.input`
+  padding: 14px 20px;
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: 12px;
+  font-size: 16px;
+  width: 100%;
+  outline: none;
+  background-color: white;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+
+  &:focus {
+    border-color: ${props => props.theme.colors.primary};
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+  }
+`;
+
+const WorkflowGrid = styled.div`
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   width: 100%;
 `;
+
+const WorkflowCard = styled.div`
+  padding: 20px;
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: 12px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+
+  &:hover {
+    border-color: ${props => props.theme.colors.primary};
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const WorkflowName = styled.h4`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${props => props.theme.colors.textPrimary};
+`;
+
+const WorkflowDescription = styled.p`
+  font-size: 14px;
+  color: ${props => props.theme.colors.textSecondary};
+  line-height: 1.4;
+`;
+
+
 
 export default function App() {
   const [sessions, setSessions] = useState([]);
@@ -108,11 +193,22 @@ export default function App() {
   const [workflows, setWorkflows] = useState([]);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasInitializedHash, setHasInitializedHash] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchWorkflows();
     fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (!hasInitializedHash && sessions.length > 0) {
+      if (!window.location.hash) {
+        window.location.hash = `#/session/${sessions[0].id}`;
+      }
+      setHasInitializedHash(true);
+    }
+  }, [sessions, hasInitializedHash]);
 
   const fetchWorkflows = async () => {
     try {
@@ -155,11 +251,15 @@ export default function App() {
   useEffect(() => {
     if (currentSessionId) {
       const sess = sessions.find(s => s.id === currentSessionId);
-      if (!sess || !sess.messages) {
+      if (sess) {
+        if (!sess.messages) {
+          fetchSessionDetails(currentSessionId);
+        }
+      } else if (sessions.length === 0 && !hasInitializedHash) {
         fetchSessionDetails(currentSessionId);
       }
     }
-  }, [currentSessionId, sessions]);
+  }, [currentSessionId, sessions, hasInitializedHash]);
 
   const fetchSessionDetails = async (id) => {
     try {
@@ -200,8 +300,44 @@ export default function App() {
     }
   };
 
+  const handleUpdateSession = async (workflowName, formValues, sessionId) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow_name: workflowName, form_values: formValues })
+      });
+      if (!res.ok) throw new Error('Failed to update session');
+      await fetchSessionDetails(sessionId);
+    } catch (err) {
+      console.error('Failed to update session:', err);
+      setError('Could not update request settings.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleSendMessage = async (text) => {
     if (!currentSessionId) return;
+
+    // Optimistically add client message to the session messages list immediately
+    const optimisticMsg = {
+      role: 'user',
+      content: text,
+      timestamp: new Date().toISOString()
+    };
+
+    setSessions(prev =>
+      prev.map(s => {
+        if (s.id === currentSessionId) {
+          const messages = s.messages ? [...s.messages, optimisticMsg] : [optimisticMsg];
+          return { ...s, messages };
+        }
+        return s;
+      })
+    );
+
     setIsProcessing(true);
     try {
       const res = await fetch(`/api/sessions/${currentSessionId}/messages`, {
@@ -214,6 +350,8 @@ export default function App() {
     } catch (err) {
       console.error('Failed to send message:', err);
       setError('Failed to send message.');
+      // Rollback on error
+      await fetchSessionDetails(currentSessionId);
     } finally {
       setIsProcessing(false);
     }
@@ -247,6 +385,10 @@ export default function App() {
   };
 
   const activeSession = sessions.find(s => s.id === currentSessionId);
+  const filteredWorkflows = workflows.filter(w =>
+    w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <ThemeProvider theme={theme}>
@@ -262,45 +404,79 @@ export default function App() {
             isProcessing={isProcessing}
           />
           <MainContent>
-            <ContentArea>
-              {error && (
-                <ErrorBanner data-testid="error-banner" style={{ width: '100%', maxWidth: activeSession ? '1220px' : '600px' }}>
-                  <span>{error}</span>
-                  <DismissButton onClick={() => setError(null)}>×</DismissButton>
-                </ErrorBanner>
-              )}
-              {activeSession ? (
-                <DoubleBubbleContainer>
+            {activeSession ? (
+              <>
+                <MiddleContent>
+                  {error && (
+                    <ErrorBanner data-testid="error-banner" style={{ width: '100%', maxWidth: '600px' }}>
+                      <span>{error}</span>
+                      <DismissButton onClick={() => setError(null)}>×</DismissButton>
+                    </ErrorBanner>
+                  )}
                   <MainBubble>
                     <WorkflowForm
                       workflows={workflows}
-                      onSubmit={handleCreateSession}
+                      onSubmit={
+                        activeSession &&
+                        activeSession.status === 'completed' &&
+                        (activeSession.decision === 'Rejected' || (activeSession.audit_log && activeSession.audit_log.decision === 'Rejected'))
+                          ? (workflowName, formValues, sessionId) => handleCreateSession(workflowName, formValues, sessionId)
+                          : handleUpdateSession
+                      }
                       isProcessing={isProcessing}
                       session={activeSession}
                     />
                   </MainBubble>
-                  <MainBubble>
-                    {!activeSession.messages ? (
-                      <LoadingText>Loading session details...</LoadingText>
-                    ) : (
-                      <ChatWindow
-                        session={activeSession}
-                        onSendMessage={handleSendMessage}
-                        isProcessing={isProcessing}
-                      />
-                    )}
-                  </MainBubble>
-                </DoubleBubbleContainer>
-              ) : (
-                <MainBubble>
-                  <WorkflowForm
-                    workflows={workflows}
-                    onSubmit={handleCreateSession}
-                    isProcessing={isProcessing}
+                </MiddleContent>
+                <RightSidebar>
+                  {!activeSession.messages ? (
+                    <LoadingText>Loading session details...</LoadingText>
+                  ) : (
+                    <ChatWindow
+                      session={activeSession}
+                      onSendMessage={handleSendMessage}
+                      isProcessing={isProcessing}
+                    />
+                  )}
+                </RightSidebar>
+              </>
+            ) : (
+              <MiddleContent>
+                {error && (
+                  <ErrorBanner data-testid="error-banner" style={{ width: '100%', maxWidth: '600px', marginBottom: '24px' }}>
+                    <span>{error}</span>
+                    <DismissButton onClick={() => setError(null)}>×</DismissButton>
+                  </ErrorBanner>
+                )}
+                <SelectorContainer>
+                  <SelectorTitle>New Security Request</SelectorTitle>
+                  <SearchInput
+                    type="text"
+                    placeholder="Search workflows..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    data-testid="workflow-search"
                   />
-                </MainBubble>
-              )}
-            </ContentArea>
+                  <WorkflowGrid>
+                    {filteredWorkflows.map(w => (
+                      <WorkflowCard
+                        key={w.name}
+                        onClick={() => handleCreateSession(w.name, {})}
+                        data-testid={`workflow-card-${w.name.toLowerCase().replace(' ', '-')}`}
+                      >
+                        <WorkflowName>{w.name}</WorkflowName>
+                        <WorkflowDescription>{w.description}</WorkflowDescription>
+                      </WorkflowCard>
+                    ))}
+                    {filteredWorkflows.length === 0 && (
+                      <div style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: '20px' }}>
+                        No workflows found matching "{searchQuery}"
+                      </div>
+                    )}
+                  </WorkflowGrid>
+                </SelectorContainer>
+              </MiddleContent>
+            )}
           </MainContent>
         </AppContainer>
       </>

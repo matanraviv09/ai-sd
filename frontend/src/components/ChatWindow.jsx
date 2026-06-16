@@ -187,7 +187,7 @@ export default function ChatWindow({ session, onSendMessage, isProcessing }) {
             onChange={e => setInput(e.target.value)}
             data-testid="chat-input"
           />
-          <SendButton type="submit" disabled={isProcessing}>Send</SendButton>
+          <SendButton type="submit" disabled={isProcessing || !input.trim()}>Send</SendButton>
         </InputArea>
       )}
     </ChatContainer>

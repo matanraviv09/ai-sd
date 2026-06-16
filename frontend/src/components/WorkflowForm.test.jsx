@@ -47,7 +47,7 @@ describe('WorkflowForm', () => {
     expect(screen.getAllByRole('combobox')[0]).toBeDisabled();
   });
 
-  it('renders read-only fields and highlights missing fields for active session', () => {
+  it('renders editable fields and highlights missing fields for active session', () => {
     const activeSession = {
       id: 'session-123',
       workflow_name: 'Vendor Approval',
@@ -65,10 +65,47 @@ describe('WorkflowForm', () => {
       />
     );
 
-    expect(screen.getByPlaceholderText('Enter vendor_name...')).toBeDisabled();
-    expect(screen.getAllByRole('combobox')[1]).toBeDisabled();
+    expect(screen.getByPlaceholderText('Enter vendor_name...')).not.toBeDisabled();
+    expect(screen.getAllByRole('combobox')[1]).not.toBeDisabled();
     expect(screen.getByText('Missing')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Active' })).toBeDisabled();
+    // Initially unchanged, so buttons are disabled
+    expect(screen.getByRole('button', { name: 'Save Settings' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
+  });
+
+  it('disables submit/reset buttons by default, enables them on change, and disables them on reset', () => {
+    const activeSession = {
+      id: 'session-123',
+      workflow_name: 'Vendor Approval',
+      status: 'active',
+      extracted_fields: {
+        vendor_name: 'Slack'
+      }
+    };
+
+    renderWithTheme(
+      <WorkflowForm
+        workflows={mockWorkflows}
+        onSubmit={() => {}}
+        session={activeSession}
+      />
+    );
+
+    const submitBtn = screen.getByRole('button', { name: 'Save Settings' });
+    const resetBtn = screen.getByRole('button', { name: 'Reset' });
+
+    expect(submitBtn).toBeDisabled();
+    expect(resetBtn).toBeDisabled();
+
+    const input = screen.getByPlaceholderText('Enter vendor_name...');
+    fireEvent.change(input, { target: { value: 'Different Vendor' } });
+    expect(submitBtn).not.toBeDisabled();
+    expect(resetBtn).not.toBeDisabled();
+
+    fireEvent.click(resetBtn);
+    expect(input.value).toBe('Slack');
+    expect(submitBtn).toBeDisabled();
+    expect(resetBtn).toBeDisabled();
   });
 
   it('allows editing and triggers onSubmit with refitted session ID when rejected', () => {
