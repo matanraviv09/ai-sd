@@ -26,7 +26,13 @@ class Workflow(ABC):
 
     @property
     def required_fields(self) -> List[str]:
-        return list(self.input_model.model_fields.keys())
+        """Return only fields that have no default (i.e. truly required by Pydantic).
+        Optional fields with defaults are excluded so they never block the workflow."""
+        return [
+            name
+            for name, field in self.input_model.model_fields.items()
+            if field.is_required()
+        ]
 
     @abstractmethod
     def evaluate_decision(self, extracted_fields: Dict[str, Any]) -> WorkflowDecision:
