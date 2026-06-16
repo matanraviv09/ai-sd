@@ -27,6 +27,7 @@ describe.sequential('App Integration', () => {
   });
 
   beforeEach(() => {
+    window.location.hash = '';
     let dbSessions = {
       'session-1': {
         id: 'session-1',

@@ -84,6 +84,24 @@ const DismissButton = styled.button`
   line-height: 1;
 `;
 
+const DoubleBubbleContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  width: 100%;
+  max-width: 1220px;
+  justify-content: center;
+  align-items: center;
+`;
+
+const ContentArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+`;
+
 export default function App() {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -121,6 +139,20 @@ export default function App() {
   };
 
   useEffect(() => {
+    const handleHashChange = () => {
+      const match = window.location.hash.match(/^#\/session\/(.+)$/);
+      if (match) {
+        setCurrentSessionId(match[1]);
+      } else {
+        setCurrentSessionId(null);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange();
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
     if (currentSessionId) {
       const sess = sessions.find(s => s.id === currentSessionId);
       if (!sess || !sess.messages) {
@@ -148,18 +180,18 @@ export default function App() {
     }
   };
 
-  const handleCreateSession = async (workflowName, formValues) => {
+  const handleCreateSession = async (workflowName, formValues, refitted_from = null) => {
     setIsProcessing(true);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflow_name: workflowName, form_values: formValues })
+        body: JSON.stringify({ workflow_name: workflowName, form_values: formValues, refitted_from })
       });
       if (!res.ok) throw new Error('Failed to create session');
       const newSession = await res.json();
       await fetchSessionDetails(newSession.id);
-      setCurrentSessionId(newSession.id);
+      window.location.hash = `#/session/${newSession.id}`;
     } catch (err) {
       console.error('Failed to create session:', err);
       setError('Could not create new security request.');
@@ -196,7 +228,7 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to delete session');
       setSessions(prev => prev.filter(s => s.id !== id));
       if (currentSessionId === id) {
-        setCurrentSessionId(null);
+        window.location.hash = '';
       }
     } catch (err) {
       console.error('Failed to delete session:', err);
@@ -204,6 +236,14 @@ export default function App() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSelectSession = (id) => {
+    window.location.hash = `#/session/${id}`;
+  };
+
+  const handleNewSession = () => {
+    window.location.hash = '';
   };
 
   const activeSession = sessions.find(s => s.id === currentSessionId);
@@ -216,37 +256,51 @@ export default function App() {
           <SessionSidebar
             sessions={sessions}
             currentSessionId={currentSessionId}
-            onSelectSession={setCurrentSessionId}
-            onNewSession={() => setCurrentSessionId(null)}
+            onSelectSession={handleSelectSession}
+            onNewSession={handleNewSession}
             onDeleteSession={handleDeleteSession}
             isProcessing={isProcessing}
           />
           <MainContent>
-            <MainBubble>
+            <ContentArea>
               {error && (
-                <ErrorBanner data-testid="error-banner">
+                <ErrorBanner data-testid="error-banner" style={{ width: '100%', maxWidth: activeSession ? '1220px' : '600px' }}>
                   <span>{error}</span>
                   <DismissButton onClick={() => setError(null)}>×</DismissButton>
                 </ErrorBanner>
               )}
               {activeSession ? (
-                !activeSession.messages ? (
-                  <LoadingText>Loading session details...</LoadingText>
-                ) : (
-                  <ChatWindow
-                    session={activeSession}
-                    onSendMessage={handleSendMessage}
+                <DoubleBubbleContainer>
+                  <MainBubble>
+                    <WorkflowForm
+                      workflows={workflows}
+                      onSubmit={handleCreateSession}
+                      isProcessing={isProcessing}
+                      session={activeSession}
+                    />
+                  </MainBubble>
+                  <MainBubble>
+                    {!activeSession.messages ? (
+                      <LoadingText>Loading session details...</LoadingText>
+                    ) : (
+                      <ChatWindow
+                        session={activeSession}
+                        onSendMessage={handleSendMessage}
+                        isProcessing={isProcessing}
+                      />
+                    )}
+                  </MainBubble>
+                </DoubleBubbleContainer>
+              ) : (
+                <MainBubble>
+                  <WorkflowForm
+                    workflows={workflows}
+                    onSubmit={handleCreateSession}
                     isProcessing={isProcessing}
                   />
-                )
-              ) : (
-                <WorkflowForm
-                  workflows={workflows}
-                  onSubmit={handleCreateSession}
-                  isProcessing={isProcessing}
-                />
+                </MainBubble>
               )}
-            </MainBubble>
+            </ContentArea>
           </MainContent>
         </AppContainer>
       </>
