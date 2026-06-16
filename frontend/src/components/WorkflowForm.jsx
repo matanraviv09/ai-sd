@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
+const StyledForm = styled.form`
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`;
+
 const FormContainer = styled.div`
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
 `;
 
 const Title = styled.h2`
@@ -72,6 +82,12 @@ const SubmitButton = styled.button`
   &:hover {
     background-color: ${props => props.theme.colors.primaryHover};
   }
+
+  &:disabled {
+    background-color: ${props => props.theme.colors.border};
+    color: ${props => props.theme.colors.textSecondary};
+    cursor: not-allowed;
+  }
 `;
 
 const LoadingText = styled.div`
@@ -79,7 +95,7 @@ const LoadingText = styled.div`
   color: ${props => props.theme.colors.textSecondary};
 `;
 
-export default function WorkflowForm({ workflows, onSubmit }) {
+export default function WorkflowForm({ workflows, onSubmit, isProcessing }) {
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
   const [formData, setFormData] = useState({});
 
@@ -105,13 +121,14 @@ export default function WorkflowForm({ workflows, onSubmit }) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <StyledForm onSubmit={handleSubmit}>
       <FormContainer>
         <Title>New Security Request</Title>
         <FormGroup>
           <Label>Select Workflow</Label>
           <Select
             value={selectedWorkflow}
+            disabled={isProcessing}
             onChange={e => {
               setSelectedWorkflow(e.target.value);
               setFormData({});
@@ -131,6 +148,7 @@ export default function WorkflowForm({ workflows, onSubmit }) {
               {isLiteral ? (
                 <Select
                   value={formData[field.name] || ''}
+                  disabled={isProcessing}
                   onChange={e => handleFieldChange(field.name, e.target.value)}
                 >
                   <option value="">-- Choose option (Optional) --</option>
@@ -142,6 +160,7 @@ export default function WorkflowForm({ workflows, onSubmit }) {
                 <Input
                   type="text"
                   value={formData[field.name] || ''}
+                  disabled={isProcessing}
                   placeholder={`Enter ${field.name}...`}
                   onChange={e => handleFieldChange(field.name, e.target.value)}
                 />
@@ -151,8 +170,10 @@ export default function WorkflowForm({ workflows, onSubmit }) {
           );
         })}
 
-        <SubmitButton type="submit">Start Request</SubmitButton>
+        <SubmitButton type="submit" disabled={isProcessing}>
+          {isProcessing ? 'Processing...' : 'Start Request'}
+        </SubmitButton>
       </FormContainer>
-    </form>
+    </StyledForm>
   );
 }

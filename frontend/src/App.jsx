@@ -89,6 +89,7 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [workflows, setWorkflows] = useState([]);
   const [error, setError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     fetchWorkflows();
@@ -121,9 +122,12 @@ export default function App() {
 
   useEffect(() => {
     if (currentSessionId) {
-      fetchSessionDetails(currentSessionId);
+      const sess = sessions.find(s => s.id === currentSessionId);
+      if (!sess || !sess.messages) {
+        fetchSessionDetails(currentSessionId);
+      }
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, sessions]);
 
   const fetchSessionDetails = async (id) => {
     try {
@@ -145,6 +149,7 @@ export default function App() {
   };
 
   const handleCreateSession = async (workflowName, formValues) => {
+    setIsProcessing(true);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
@@ -153,15 +158,19 @@ export default function App() {
       });
       if (!res.ok) throw new Error('Failed to create session');
       const newSession = await res.json();
+      await fetchSessionDetails(newSession.id);
       setCurrentSessionId(newSession.id);
     } catch (err) {
       console.error('Failed to create session:', err);
       setError('Could not create new security request.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleSendMessage = async (text) => {
     if (!currentSessionId) return;
+    setIsProcessing(true);
     try {
       const res = await fetch(`/api/sessions/${currentSessionId}/messages`, {
         method: 'POST',
@@ -173,6 +182,27 @@ export default function App() {
     } catch (err) {
       console.error('Failed to send message:', err);
       setError('Failed to send message.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteSession = async (id) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch(`/api/sessions/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete session');
+      setSessions(prev => prev.filter(s => s.id !== id));
+      if (currentSessionId === id) {
+        setCurrentSessionId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+      setError('Could not delete session.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -188,6 +218,8 @@ export default function App() {
             currentSessionId={currentSessionId}
             onSelectSession={setCurrentSessionId}
             onNewSession={() => setCurrentSessionId(null)}
+            onDeleteSession={handleDeleteSession}
+            isProcessing={isProcessing}
           />
           <MainContent>
             <MainBubble>
@@ -204,12 +236,14 @@ export default function App() {
                   <ChatWindow
                     session={activeSession}
                     onSendMessage={handleSendMessage}
+                    isProcessing={isProcessing}
                   />
                 )
               ) : (
                 <WorkflowForm
                   workflows={workflows}
                   onSubmit={handleCreateSession}
+                  isProcessing={isProcessing}
                 />
               )}
             </MainBubble>

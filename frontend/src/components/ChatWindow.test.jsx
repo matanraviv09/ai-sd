@@ -51,4 +51,12 @@ describe('ChatWindow', () => {
     expect(screen.getByText('Approved')).toBeInTheDocument();
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument();
   });
+
+  it('renders thinking bubble and disables input when processing', () => {
+    renderWithTheme(<ChatWindow session={mockActiveSession} onSendMessage={() => {}} isProcessing={true} />);
+
+    expect(screen.getByTestId('thinking-bubble')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-input')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
 });

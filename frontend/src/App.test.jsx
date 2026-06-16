@@ -81,6 +81,14 @@ describe.sequential('App Integration', () => {
         const id = parts[3];
         const isMessage = parts[4] === 'messages';
         
+        if (options && options.method === 'DELETE') {
+          delete dbSessions[id];
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ detail: 'Session deleted' })
+          });
+        }
+
         if (isMessage && options && options.method === 'POST') {
           const body = JSON.parse(options.body);
           const session = dbSessions[id];
@@ -174,5 +182,20 @@ describe.sequential('App Integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '×' }));
     expect(screen.queryByTestId('error-banner')).not.toBeInTheDocument();
+  });
+
+  it('allows deletion of a session', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Vendor Approval (sessio)')).toBeInTheDocument();
+    });
+
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete Request' });
+    fireEvent.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Vendor Approval (sessio)')).not.toBeInTheDocument();
+    });
   });
 });

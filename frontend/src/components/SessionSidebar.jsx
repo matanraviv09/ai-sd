@@ -29,6 +29,12 @@ const NewButton = styled.button`
   &:hover {
     background-color: ${props => props.theme.colors.primaryHover};
   }
+
+  &:disabled {
+    background-color: ${props => props.theme.colors.border};
+    color: ${props => props.theme.colors.textSecondary};
+    cursor: not-allowed;
+  }
 `;
 
 const ScrollableList = styled.div`
@@ -48,18 +54,67 @@ const SectionTitle = styled.h3`
   }
 `;
 
-const SessionItem = styled.div`
+const SessionItemRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 10px;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
   font-size: 14px;
   margin-bottom: 4px;
   background-color: ${props => props.$active ? props.theme.colors.chatUser : 'transparent'};
   color: ${props => props.$active ? props.theme.colors.primary : props.theme.colors.textPrimary};
   font-weight: ${props => props.$active ? '600' : 'normal'};
+  opacity: ${props => props.$disabled ? 0.7 : 1};
+  pointer-events: ${props => props.$disabled ? 'none' : 'auto'};
 
   &:hover {
     background-color: ${props => props.$active ? props.theme.colors.chatUser : props.theme.colors.chatAssistant};
+  }
+`;
+
+const SessionItemText = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const DeleteButton = styled.button`
+  background: none;
+  border: none;
+  color: ${props => props.theme.colors.textSecondary};
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &:hover {
+    color: ${props => props.theme.colors.error};
+    background-color: ${props => props.theme.colors.errorBg};
+  }
+`;
+
+const SidebarSpinner = styled.span`
+  width: 12px;
+  height: 12px;
+  border: 2px solid ${props => props.theme.colors.border};
+  border-top-color: ${props => props.theme.colors.primary};
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 `;
 
@@ -69,37 +124,65 @@ const EmptyText = styled.div`
   padding: 4px 10px;
 `;
 
-export default function SessionSidebar({ sessions, currentSessionId, onSelectSession, onNewSession }) {
+export default function SessionSidebar({ sessions, currentSessionId, onSelectSession, onNewSession, onDeleteSession, isProcessing }) {
   const activeSessions = sessions.filter(s => s.status === 'active');
   const completedSessions = sessions.filter(s => s.status === 'completed');
 
   return (
     <SidebarContainer>
       <Header>
-        <NewButton onClick={onNewSession}>New Request</NewButton>
+        <NewButton onClick={onNewSession} disabled={isProcessing}>New Request</NewButton>
       </Header>
       <ScrollableList>
         <SectionTitle>Active Requests</SectionTitle>
         {activeSessions.map(session => (
-          <SessionItem
+          <SessionItemRow
             key={session.id}
             $active={session.id === currentSessionId}
-            onClick={() => onSelectSession(session.id)}
+            $disabled={isProcessing}
+            onClick={() => !isProcessing && onSelectSession(session.id)}
           >
-            {session.workflow_name} ({session.id.substring(0, 6)})
-          </SessionItem>
+            <SessionItemText>
+              {session.id === currentSessionId && isProcessing && <SidebarSpinner data-testid="sidebar-spinner" />}
+              {session.workflow_name} ({session.id.substring(0, 6)})
+            </SessionItemText>
+            <DeleteButton
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteSession(session.id);
+              }}
+              title="Delete Request"
+              aria-label="Delete Request"
+            >
+              ×
+            </DeleteButton>
+          </SessionItemRow>
         ))}
         {activeSessions.length === 0 && <EmptyText>None</EmptyText>}
 
         <SectionTitle>Completed Requests</SectionTitle>
         {completedSessions.map(session => (
-          <SessionItem
+          <SessionItemRow
             key={session.id}
             $active={session.id === currentSessionId}
-            onClick={() => onSelectSession(session.id)}
+            $disabled={isProcessing}
+            onClick={() => !isProcessing && onSelectSession(session.id)}
           >
-            {session.workflow_name} ({session.id.substring(0, 6)})
-          </SessionItem>
+            <SessionItemText>
+              {session.id === currentSessionId && isProcessing && <SidebarSpinner data-testid="sidebar-spinner" />}
+              {session.workflow_name} ({session.id.substring(0, 6)})
+            </SessionItemText>
+            <DeleteButton
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteSession(session.id);
+              }}
+              title="Delete Request"
+              aria-label="Delete Request"
+            >
+              ×
+            </DeleteButton>
+          </SessionItemRow>
         ))}
         {completedSessions.length === 0 && <EmptyText>None</EmptyText>}
       </ScrollableList>

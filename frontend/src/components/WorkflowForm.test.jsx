@@ -40,4 +40,12 @@ describe('WorkflowForm', () => {
       soc2_available: 'yes'
     });
   });
+
+  it('disables input elements and updates button text when processing', () => {
+    renderWithTheme(<WorkflowForm workflows={mockWorkflows} onSubmit={() => {}} isProcessing={true} />);
+    
+    expect(screen.getByRole('button', { name: 'Processing...' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Enter vendor_name...')).toBeDisabled();
+    expect(screen.getAllByRole('combobox')[0]).toBeDisabled();
+  });
 });

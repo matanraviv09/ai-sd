@@ -73,9 +73,40 @@ const SendButton = styled.button`
   &:hover {
     background-color: ${props => props.theme.colors.primaryHover};
   }
+
+  &:disabled {
+    background-color: ${props => props.theme.colors.border};
+    color: ${props => props.theme.colors.textSecondary};
+    cursor: not-allowed;
+  }
 `;
 
-export default function ChatWindow({ session, onSendMessage }) {
+const ThinkingBubble = styled(Bubble)`
+  font-style: italic;
+  color: ${props => props.theme.colors.textSecondary};
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const Dot = styled.span`
+  width: 6px;
+  height: 6px;
+  background-color: ${props => props.theme.colors.textSecondary};
+  border-radius: 50%;
+  display: inline-block;
+  animation: bounce 1.4s infinite ease-in-out both;
+
+  &:nth-child(1) { animation-delay: -0.32s; }
+  &:nth-child(2) { animation-delay: -0.16s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1.0); }
+  }
+`;
+
+export default function ChatWindow({ session, onSendMessage, isProcessing }) {
   const [input, setInput] = useState('');
   const listRef = useRef(null);
 
@@ -108,6 +139,14 @@ export default function ChatWindow({ session, onSendMessage }) {
             {msg.content}
           </Bubble>
         ))}
+        {isProcessing && (
+          <ThinkingBubble $role="assistant" data-testid="thinking-bubble">
+            Thinking
+            <Dot />
+            <Dot />
+            <Dot />
+          </ThinkingBubble>
+        )}
       </MessageList>
 
       {!isCompleted && (
@@ -115,11 +154,12 @@ export default function ChatWindow({ session, onSendMessage }) {
           <Input
             type="text"
             value={input}
-            placeholder="Type your response..."
+            placeholder={isProcessing ? "Assistant is thinking..." : "Type your response..."}
+            disabled={isProcessing}
             onChange={e => setInput(e.target.value)}
             data-testid="chat-input"
           />
-          <SendButton type="submit">Send</SendButton>
+          <SendButton type="submit" disabled={isProcessing}>Send</SendButton>
         </InputArea>
       )}
     </ChatContainer>

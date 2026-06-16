@@ -46,4 +46,37 @@ describe('SessionSidebar', () => {
     fireEvent.click(screen.getByText('Vendor Approval (876543)'));
     expect(onSelectSession).toHaveBeenCalledWith('87654321');
   });
+
+  it('triggers onDeleteSession when delete button is clicked', () => {
+    const onDeleteSession = vi.fn();
+    renderWithTheme(
+      <SessionSidebar
+        sessions={mockSessions}
+        currentSessionId="12345678"
+        onSelectSession={() => {}}
+        onNewSession={() => {}}
+        onDeleteSession={onDeleteSession}
+      />
+    );
+
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete Request' });
+    fireEvent.click(deleteButtons[0]);
+    expect(onDeleteSession).toHaveBeenCalledWith('12345678');
+  });
+
+  it('renders loading spinner and disables buttons when processing', () => {
+    renderWithTheme(
+      <SessionSidebar
+        sessions={mockSessions}
+        currentSessionId="12345678"
+        onSelectSession={() => {}}
+        onNewSession={() => {}}
+        onDeleteSession={() => {}}
+        isProcessing={true}
+      />
+    );
+
+    expect(screen.getByTestId('sidebar-spinner')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Request' })).toBeDisabled();
+  });
 });
