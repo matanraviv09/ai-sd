@@ -106,6 +106,29 @@ const Dot = styled.span`
   }
 `;
 
+const RefitBanner = styled.div`
+  padding: 10px 14px;
+  background-color: ${props => props.theme.colors.chatAssistant};
+  border: 1px solid ${props => props.theme.colors.border};
+  font-size: 13px;
+  color: ${props => props.theme.colors.textSecondary};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+`;
+
+const RefitLink = styled.a`
+  color: ${props => props.theme.colors.primary};
+  text-decoration: none;
+  font-weight: 600;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 export default function ChatWindow({ session, onSendMessage, isProcessing }) {
   const [input, setInput] = useState('');
   const listRef = useRef(null);
@@ -127,6 +150,11 @@ export default function ChatWindow({ session, onSendMessage, isProcessing }) {
 
   return (
     <ChatContainer>
+      {session.refitted_from && (
+        <RefitBanner data-testid="refit-banner">
+          Refitted from request <RefitLink href={`#/session/${session.refitted_from}`}>#{session.refitted_from.substring(0, 6)}</RefitLink>
+        </RefitBanner>
+      )}
       {isCompleted && session.audit_log && (
         <Banner $status={session.audit_log.decision} data-testid="decision-banner">
           <strong>{session.audit_log.decision}</strong>: {session.audit_log.rationale}

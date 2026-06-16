@@ -59,4 +59,23 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('chat-input')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
+
+  it('renders refit banner link when session has refitted_from property', () => {
+    const refittedSession = {
+      id: 's3',
+      status: 'active',
+      refitted_from: 'parent-12345678',
+      messages: [
+        { role: 'assistant', content: 'Continuing review.' }
+      ]
+    };
+
+    renderWithTheme(<ChatWindow session={refittedSession} onSendMessage={() => {}} />);
+
+    expect(screen.getByTestId('refit-banner')).toBeInTheDocument();
+    expect(screen.getByText('Refitted from request')).toBeInTheDocument();
+    
+    const link = screen.getByRole('link', { name: '#parent' });
+    expect(link).toHaveAttribute('href', '#/session/parent-12345678');
+  });
 });
