@@ -62,7 +62,7 @@ class OpenAIClient:
             f"You are a friendly, helpful security team assistant. We are collecting information for a security review.\n"
             f"The field '{missing_field}' (described as: '{field_description}') is missing.\n"
             f"Ask the user one polite, conversational question to gather ONLY this missing field. "
-            f"Do not ask for any other information. Keep it short."
+            f"Do not ask for any other information. Keep it extremely short and direct, without unnecessary greetings."
         )
         
         chat_messages = [{"role": "system", "content": system_prompt}]
@@ -87,7 +87,7 @@ class OpenAIClient:
             f"Status: {status}\n"
             f"Rationale: {rationale}\n"
             f"In-depth security metadata: {json.dumps(metadata)}\n\n"
-            f"Write a friendly, professional response informing the user of the final decision and explaining the rationale in detail."
+            f"Write a very concise, direct response stating the final decision and highlighting exactly what went wrong or succeeded. Keep it under two sentences."
         )
         
         chat_messages = [{"role": "system", "content": system_prompt}]
