@@ -1,22 +1,37 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 
+from backend.app.config import settings
 from backend.app.database import engine, Base, get_db
 from backend.app.models import Session as SessionModel, Message as MessageModel, AuditLog as AuditLogModel
 from backend.app.engine import Engine
 
-# Create tables
+# Create tables on startup
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Security Workflow Assistant API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Guard: raises ValueError if production config is incomplete.
+    settings.validate_production()
+    yield
+
+
+app = FastAPI(
+    title="Security Workflow Assistant API",
+    docs_url=settings.docs_url,
+    redoc_url=settings.redoc_url,
+    lifespan=lifespan,
+)
 engine_instance = Engine()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
